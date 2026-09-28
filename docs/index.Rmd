@@ -1,0 +1,289 @@
+---
+title: "Image Compression Web Site"
+author: ""
+date: ""
+output: html_document
+---
+
+## PCA Image Compression Function
+
+This function takes a $n \times p$ matrix image and a value of k as inputs, and returns:
+
+- The rank k PCA approximation of the image
+- The Frobenius norm error
+
+```{r}
+# PCA funtion
+compress_image_eigen <- function(img_matrix, k) {
+ 
+  # Compute V = X'X
+  V <- t(img_matrix) %*% img_matrix
+ 
+  # Eigendecomposition of V
+  eig <- eigen(V)
+  U <- eig$vectors
+ 
+  # Compute PC scores Z = XU
+  Z <- img_matrix %*% U
+ 
+  # The rank k PCA approximation
+  Xk <- Z[, 1:k] %*% t(U[, 1:k])
+ 
+  # Frobenius norm error
+  error <- norm(img_matrix - Xk, type = "F")
+ 
+ return(list(approx = Xk, error = error))
+}
+
+```
+
+## 1. Image 1 Analysis
+
+### 1.1 Load Image
+```{r}
+library(readr)
+
+# Read the CSV file into a data frame
+x1 <- read_csv("image1.csv")
+
+# Convert data frame into a matrix
+x1 <- data.matrix(x1)
+```
+### 1.2 Original Image
+```{r}
+image(x1, col = gray.colors(256), main = "Original Image 1")
+```
+
+### 1.3 PCA Approximations (k = 1 to 10)
+```{r}
+par(mfrow = c(2,5))
+for (k in 1:10) {
+  result <- compress_image_eigen(x1, k)
+  image(result$approx, col = gray.colors(256),
+        main = paste("k =", k))
+}
+par(mfrow = c(1,1))
+```
+### 1.4 A plot of the approximation error vs. k for all possible values of k (error on y‑axis, k on x‑axis)
+```{r}
+errors <- numeric()
+
+for (k in 1:ncol(x1)) {
+  errors[k] <- compress_image_eigen(x1, k)$error
+}
+plot(errors, type = "l",
+     xlab = "k", ylab = "Frobenius Error",
+     main = "Error vs k for Image 1")
+```
+
+### 1.5 First Eigenvector Plot and First PC Score Plot
+```{r}
+# Compute X'X
+V1 <- t(x1) %*% x1
+
+# Eigendecomposition
+eig1 <- eigen(V1)
+
+# First eigenvector
+first_eigenvector_1 <- eig1$vectors[,1]
+
+# First PC score
+first_pc_score_1 <- x1 %*% eig1$vectors[,1]
+
+plot(first_eigenvector_1, type = "l", main = "First Eigenvector (Image 1)")
+
+plot(first_pc_score_1, type = "l", main = "First PC Score (Image 1)")
+```
+
+**Interpretation of Plots**
+
+The first eigenvector plot shows one dominant peak, meaning most columns contribute very little except that narrow region, which defines the main structure of the image. The first PC score plot fluctuates across rows, because the presence of the horizontal line makes those particular rows different from the rest of the image. Together, these plots show that the image's structure is dominated by that horizontal line, so small k PCA captures the broad line while larger k values preserve finer shading and detail.
+
+### 1.6 My chosen sufficiently good value of k
+For Image 1, the main structure is a single horizontal line against a lightly textured background. The error vs k plot shows the Frobenius error decreases steadily, which indicates that the image's variance is distributed gradually across components. Because the curve does not reveal a clear turning point, visual inspection of the PCA Approximations is essential for selecting a sufficiently good value of k. The PCA Approximations for k = 1 to 10 show that this dominant line is already captured at very small values of k, around k = 6, and the background remains smooth without distortion. Because the image is simple, the first few components (roughly PC1 to PC6) already capture most of its structure, and adding more components only refines minor background details without significantly improving visual quality. Therefore, k = 6 is a sufficiently good choice for this image, balancing visual accuracy with efficient compression.
+
+## 2. Image 2 Analysis
+### 2.1 Load Image
+```{r}
+library(readr)
+x2 <- read_csv("image2.csv")
+x2 <- data.matrix(x2)
+```
+
+### 2.2 Original Image
+```{r}
+image(x2, col = gray.colors(256), main = "Original Image 2")
+```
+
+### 2.3 PCA Approximations (k = 1 to 10)
+```{r}
+par(mfrow = c(2,5))
+for (k in 1:10) {
+  result <- compress_image_eigen(x2, k)
+  image(result$approx, col = gray.colors(256),
+        main = paste("k =", k))
+}
+par(mfrow = c(1,1))
+```
+
+### 2.4 A plot of the approximation error vs. k for all possible values of k
+```{r}
+errors <- numeric()
+
+for (k in 1:ncol(x2)) {
+  errors[k] <- compress_image_eigen(x2, k)$error
+}
+
+plot(errors, type = "l",
+     xlab = "k", ylab = "Frobenius Error",
+     main = "Error vs k for Image 2")
+```
+
+### 2.5 First Eigenvector Plot and First PC Score Plot
+```{r}
+# Compute X'X
+V2 <- t(x2) %*% x2
+
+# Eigendecomposition
+eig2 <- eigen(V2)
+
+# First eigenvector
+first_eigenvector_2 <- eig2$vectors[,1]
+
+# First PC score
+first_pc_score_2 <- x2 %*% eig2$vectors[,1]
+
+plot(first_eigenvector_2, type = "l", main = "First Eigenvector (Image 2)")
+
+plot(first_pc_score_2, type = "l", main = "First PC Score (Image 2)")
+```
+
+**Interpretation of Plots** 
+
+The first eigenvector plot shows a smooth downward trend, meaning the dominant variation changes gradually across columns and reflects the vertical gradient in the image. The first PC score plot fluctuates across rows, indicating that the rows differ because of the repeated vertical lines running through the image. Together, these plots show that the image's structure is driven by a large scale vertical shading pattern combined with strong vertical line texture. Small k PCA captures the overall gradient, while larger k values mainly refine the vertical line details.
+
+### 2.6 My chosen sufficiently good value of k
+For Image 2, the dominant structure is a smooth vertical gradient combined with strong vertical line texture. The PCA approximations for k = 1 to 10 show that the vertical structure is already captured at very small values of k, around k = 4, and the image appears visually stable around k = 4. The error vs k plot confirms this, the Frobenius error drops sharply in the first few components and then becomes flat around k = 4, indicating that most of the image's variance is explained by the earliest principal components. Because the image’s pattern is simple and highly repetitive, increasing k beyond this point adds only minor refinements along the vertical lines without improving visual quality. Therefore, k = 4  is a sufficiently good choice for this image, balancing visual accuracy with efficient compression.
+
+## 3. Image 3 Analysis
+### 3.1 Load Image
+```{r}
+library(readr)
+x3 <- read_csv("image3.csv")
+x3 <- data.matrix(x3)
+```
+### 3.2 Original Image
+```{r}
+image(x3, col = gray.colors(256), main = "Original Image 3")
+```
+
+### 3.3 PCA Approximations (k = 1 to 10)
+```{r}
+par(mfrow = c(2,5))
+for (k in 1:10) {
+  result <- compress_image_eigen(x3, k)
+  image(result$approx, col = gray.colors(256),
+        main = paste("k =", k))
+}
+par(mfrow = c(1,1))
+```
+
+### 3.4 A plot of the approximation error vs. k for all possible values of k
+```{r}
+errors <- numeric()
+
+for (k in 1:ncol(x3)) {
+  errors[k] <- compress_image_eigen(x3, k)$error
+}
+
+plot(errors, type = "l",
+     xlab = "k", ylab = "Frobenius Error",
+     main = "Error vs k for Image 3")
+```
+
+### 3.5 First Eigenvector Plot and First PC Score Plot
+```{r}
+# Compute X'X
+V3 <- t(x3) %*% x3
+
+# Eigendecomposition
+eig3 <- eigen(V3)
+
+# First eigenvector
+first_eigenvector_3 <- eig3$vectors[,1]
+
+# First PC score
+first_pc_score_3 <- x3 %*% eig3$vectors[,1]
+
+plot(first_eigenvector_3, type = "l", main = "First Eigenvector (Image 3)")
+
+plot(first_pc_score_3, type = "l", main = "First PC Score (Image 3)")
+```
+
+**Interpretation of Plots**
+
+The first eigenvector plot shows broad peaks and valleys, indicating gradual intensity changes across the image rather than sharp edges. This pattern corresponds to the smooth lighting and shading on the dog's body and the surrounding fabric. The first PC score plot rises and falls gently across rows, showing that brightness varies smoothly from one side of the image to the other. Together, these plots reveal that the image is dominated by soft horizontal gradients and natural shading typical of a real photo. Small k PCA captures the dog's overall shape and lighting, while larger k values refine the fur texture and background details.
+
+### 3.6 My chosen sufficiently good value of k
+For Image 3, the dominant variation comes from smooth lighting and gradual shading across the dog's body and background. The PCA approximations for k = 1 to 10 show that the overall shape and major brightness regions begin to appear at k = 10, but fine details such as edges and contrast require more components, and the main structure becomes clear only at moderate values of k. The error vs k plot confirms this, the Frobenius error decreases sharply at first and then gradually flattens around k = 40. Because the curve shows a clear elbow near k = 40, increasing k beyond this point only improves subtle textures without significantly improving the visual quality. Therefore, k = 40 is a sufficiently good choice for this image, balancing visual accuracy with efficient compression.
+
+## 4. Image 4 Analysis
+### 4.1 Load Image
+```{r}
+library(readr)
+x4 <- read_csv("image4.csv")
+x4 <- data.matrix(x4)
+```
+### 4.2 Original Image
+```{r}
+image(x4, col = gray.colors(256), main = "Original Image 4")
+```
+
+### 4.3 PCA Approximations (k = 1 to 10)
+```{r}
+par(mfrow = c(2,5))
+for (k in 1:10) {
+  result <- compress_image_eigen(x4, k)
+  image(result$approx, col = gray.colors(256),
+        main = paste("k =", k))
+}
+par(mfrow = c(1,1))
+```
+### 4.4 A plot of the approximation error vs. k for all possible values of k
+```{r}
+errors <- numeric()
+
+for (k in 1:ncol(x4)) {
+  errors[k] <- compress_image_eigen(x4, k)$error
+}
+
+plot(errors, type = "l",
+     xlab = "k", ylab = "Frobenius Error",
+     main = "Error vs k for Image 4")
+```
+
+### 4.5 First Eigenvector Plot and First PC Score Plot
+```{r}
+# Compute X'X
+V4 <- t(x4) %*% x4
+
+# Eigendecomposition
+eig4 <- eigen(V4)
+
+# First eigenvector
+first_eigenvector_4 <- eig4$vectors[,1]
+
+# First PC score
+first_pc_score_4 <- x4 %*% eig4$vectors[,1]
+
+plot(first_eigenvector_4, type = "l", main = "First Eigenvector (Image 4)")
+
+plot(first_pc_score_4, type = "l", main = "First PC Score (Image 4)")
+```
+
+**Interpretation of Plots** 
+
+The first eigenvector plot shows broad, smooth fluctuations with no sharp peaks, indicating gradual intensity changes across the image. This pattern matches the blurred satellite photo, where terrain details and boundaries are softened. The first PC score plot also fluctuates gently, showing slow transitions in brightness across the region. Together, these plots reveal that the image is dominated by large scale, low contrast shading typical of blurred ground imagery. Small k PCA captures the overall terrain shape, while higher k values mainly add subtle shading differences without adding new structural detail.
+
+### 4.6 My chosen sufficiently good value of k
+For Image 4, the original image is blurry and lacks sharp edges, so most of its variation comes from broad intensity patterns rather than fine details. The PCA approximations for k = 1 to 10 show that these structures begin to appear at k = 10, but the reconstructions remain coarse and unstable, indicating that more components are needed to represent the main patterns reliably. The error vs k plot confirms this, the Frobenius error decreases rapidly at first and then gradually flattens around k = 30, showing that most of the variance is captured by the first 30 components. Increasing k beyond this point only adds subtle shading differences without noticeably improving visual quality. Therefore, k = 30 is a sufficiently good choice for this image, balancing visual accuracy with efficient compression.
